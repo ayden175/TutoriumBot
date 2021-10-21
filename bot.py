@@ -129,7 +129,7 @@ class Bot(discord.Client):
 
         guild = message.guild.id
 
-        print(cmd)
+        print(f"{message.author.display_name}: {message.content}")
 
         if cmd[0].startswith('!init'):
             if message.author != self.tutor[guild]:
