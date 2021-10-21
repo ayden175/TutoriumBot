@@ -31,7 +31,7 @@ class Bot(discord.Client):
 
         print("------------- Initializations -------------")
         for guild in self.guilds:
-            await self.initialize(guild, None, startup=True)
+            await self.initialize(guild, startup=True)
 
         self.help = (" - `!ping`: Schickt eine Benachrichtigung, wenn du eine Frage hast\n"
                      " - `!rem`: Gibt zurück wie lange der aktuelle Timer noch läuft\n"
@@ -59,7 +59,7 @@ class Bot(discord.Client):
             with open('settings/'+ file + '.pkl', 'wb+') as f:
                 pickle.dump(getattr(self, file), f, pickle.HIGHEST_PROTOCOL)
 
-    async def initialize(self, guild, message, startup=False):
+    async def initialize(self, guild, message=None, startup=False):
         new = False
         if guild.id not in self.known_guilds:
             new = True
@@ -99,13 +99,13 @@ class Bot(discord.Client):
         text += f"Gruppengröße: {self.group_size[guild.id]}"
         error = False
         if not bot_found:
-            text +=f"\nDu kannst den Bot Channel manuell mit `!set bot channel_name_here` festlegen!"
+            text +=f"\nDu kannst den Bot Channel manuell mit `!set bot channel_name` festlegen!"
             error = True
         if not general_found:
-            text +=f"\nDu kannst den General Voice Channel manuell mit `!set general channel_name_here` festlegen!"
+            text +=f"\nDu kannst den General Voice Channel manuell mit `!set general channel_name` festlegen!"
             error = True
         if not rooms_found:
-            text +=f"\nDu kannst die Voice Channel manuell mit `!set rooms channel_name_here` festlegen! Die Channel sollten dann die Namen `channel_name_here-i` haben, wobei i bei 1 anfängt."
+            text +=f"\nDu kannst die Voice Channel manuell mit `!set rooms channel_name` festlegen! Die Channel sollten dann die Namen `channel_name-i` haben, wobei i bei 1 anfängt."
             error = True
         if error:
             text +=f"\nNachdem du einen Channel gesetzt hast, musst du `!init` benutzen, um die Einstellungen anzuwenden. Alle commands müssen im Server aufgerufen werden!"
@@ -122,11 +122,14 @@ class Bot(discord.Client):
         await self.initialize(guild)
 
     async def on_message(self, message):
+        cmd_orig = message.content.split()
         cmd = message.content.lower().split()
         if message.author == self.user or len(cmd) == 0 or not cmd[0].startswith('!') or message.guild is None:
             return
 
         guild = message.guild.id
+
+        print(cmd)
 
         if cmd[0].startswith('!init'):
             if message.author != self.tutor[guild]:
@@ -148,7 +151,7 @@ class Bot(discord.Client):
                 if len(cmd) < i+1:
                     await message.reply(f'Beep boop, du hast keinen Channel Namen für {setting} eingegeben!', mention_author=False)
                     break
-                channel = cmd[i+1]
+                channel = cmd_orig[i+1]
                 getattr(self, 'settings_'+setting)[guild] = channel
                 if setting == 'size':
                     await message.reply(f'Beep boop, Gruppengröße auf mindestens {channel} gesetzt!', mention_author=False)
