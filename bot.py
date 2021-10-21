@@ -9,18 +9,18 @@ from random import shuffle
 class Bot(discord.Client):
     async def on_ready(self):
         self.known_guilds = []
-        self.settings = ['known_guilds', 'settings_bot', 'settings_general', 'settings_rooms', 'settings_min']
+        self.settings = ['known_guilds', 'settings_bot', 'settings_general', 'settings_rooms', 'settings_size']
         self.settings_bot = {'default': 'bot'}
         self.settings_general = {'default': 'general'}
         self.settings_rooms = {'default': 'voice-'}
-        self.settings_min = {'default': 3}
+        self.settings_size = {'default': 3}
         self.bot_channel = {}
         self.tutor = {}
         self.general = {}
         self.rooms = {}
         self.started_at = {}
         self.min = {}
-        self.minimum_per_room = {}
+        self.group_size = {}
 
         for file in self.settings:
             try:
@@ -38,7 +38,7 @@ class Bot(discord.Client):
                      " - `!help`: Gibt diese Nachricht aus")
 
         self.help_full = (" - `!init`: Aktualisisert die Einstellungen für den Server\n"
-                          " - `!set [bot/general/rooms/min] arg`: Setzt eine Einstellung auf einen neuen Wert, lässt sich chainen\n"
+                          " - `!set [bot/general/rooms/size] arg`: Setzt eine Einstellung auf einen neuen Wert, lässt sich chainen\n"
                           " - `!ping`: Schickt eine Benachrichtigung, wenn jemand eine Frage hat\n"
                           " - `!room`: Teilt alle teilnehmenden Studierenden auf die Räume auf\n"
                           " - `!time arg`: Stellt einen Timer für `arg` Minuten, muss ein Integer sein und zwischen 0 und 120 liegen\n"
@@ -70,7 +70,7 @@ class Bot(discord.Client):
         bot     = self.settings_bot[guild.id]     if guild.id in self.settings_bot     else self.settings_bot['default']
         general = self.settings_general[guild.id] if guild.id in self.settings_general else self.settings_general['default']
         rooms   = self.settings_rooms[guild.id]   if guild.id in self.settings_rooms   else self.settings_rooms['default']
-        min     = self.settings_min[guild.id]     if guild.id in self.settings_min     else self.settings_min['default']
+        size    = self.settings_size[guild.id]    if guild.id in self.settings_size    else self.settings_size['default']
 
         self.tutor[guild.id]       = guild.owner
         self.bot_channel[guild.id] = discord.utils.get(guild.channels, name=bot)
@@ -89,14 +89,14 @@ class Bot(discord.Client):
         rooms_found = len(self.rooms) > 0
         self.started_at[guild.id]  = None
         self.min[guild.id] = None
-        self.minimum_per_room[guild.id] = min
+        self.group_size[guild.id] = size
 
         text =  f'Beep boop, ich habe folgende Einstellungen für "{guild.name}" übernommen:\n'
         text += f'Tutor*in: {self.tutor[guild.id].display_name}\n'
         text += f'Bot Channel: {self.bot_channel[guild.id] if bot_found else "*Nicht gefunden!*"}\n'
         text += f'General Voice Channel: {self.general[guild.id]}\n'
         text += f"Voice Channel: {', '.join(r.name for r in self.rooms[guild.id])}\n"
-        text += f"Gruppengröße: {self.minimum_per_room[guild.id]}"
+        text += f"Gruppengröße: {self.group_size[guild.id]}"
         error = False
         if not bot_found:
             text +=f"\nDu kannst den Bot Channel manuell mit `!set bot channel_name_here` festlegen!"
@@ -142,15 +142,15 @@ class Bot(discord.Client):
             i = 1
             while i < len(cmd):
                 setting = cmd[i]
-                if setting not in ['bot', 'general', 'rooms', 'min']:
-                    await message.reply(f'Beep boop, {setting} kenne ich nicht. Benutze bitte `bot`, `general`, `rooms` oder `min`!', mention_author=False)
+                if setting not in ['bot', 'general', 'rooms', 'size']:
+                    await message.reply(f'Beep boop, {setting} kenne ich nicht. Benutze bitte `bot`, `general`, `rooms` oder `size`!', mention_author=False)
                     break
                 if len(cmd) < i+1:
                     await message.reply(f'Beep boop, du hast keinen Channel Namen für {setting} eingegeben!', mention_author=False)
                     break
                 channel = cmd[i+1]
                 getattr(self, 'settings_'+setting)[guild] = channel
-                if setting == 'min':
+                if setting == 'size':
                     await message.reply(f'Beep boop, Gruppengröße auf mindestens {channel} gesetzt!', mention_author=False)
                 else:
                     await message.reply(f'Beep boop, Channel Name von {setting} auf {channel} gesetzt!', mention_author=False)
@@ -240,8 +240,8 @@ class Bot(discord.Client):
 
             numberOfRooms = len(self.rooms[guild])
             membersPerRoom = 0
-            # check how many rooms will be used (min 3 people per room)
-            while membersPerRoom < self.minimum_per_room and numberOfRooms > 1:
+            # check how many rooms will be used
+            while membersPerRoom < self.group_size and numberOfRooms > 1:
                 numberOfRooms -= 1
                 membersPerRoom = int((len(shuffledMembers) - 1) / numberOfRooms)
 
