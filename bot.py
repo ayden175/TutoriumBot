@@ -21,6 +21,7 @@ class Bot(discord.Client):
         self.started_at = {}
         self.min = {}
         self.group_size = {}
+        self.timer = {}
 
         for file in self.settings:
             try:
@@ -207,7 +208,14 @@ class Bot(discord.Client):
                 await message.reply('Beep boop, es ist kein Timer gestellt!', mention_author=False)
                 return
 
-            await message.reply(f'Beep boop, der Timer läuft noch {int((self.started_at[guild] + self.min[guild]*60 - time.time()) / 60)} Minuten!', mention_author=False)
+            remaining_min = int((self.started_at[guild] + self.min[guild]*60 - time.time()) / 60)
+            if remaining_min == 0:
+                time_text = "weniger als eine Minute"
+            elif remaining_min == 1:
+                time_text = "eine Minute"
+            else:
+                time_text = f"{remaining_min} Minuten"
+            await message.reply(f'Beep boop, der Timer läuft noch {time_text}!', mention_author=False)
 
         elif cmd[0].startswith('!cancel'):
             if message.author != self.tutor[guild]:
