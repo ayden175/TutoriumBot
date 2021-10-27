@@ -4,10 +4,12 @@ import time
 import pickle
 from functools import partial
 from random import shuffle
+import traceback
 
 
 class Bot(discord.Client):
     async def on_ready(self):
+        self.admin = discord.utils.get(self.get_all_members(), name='Ayden', discriminator='7318')
         self.known_guilds = []
         self.settings = ['known_guilds', 'settings_bot', 'settings_general', 'settings_rooms', 'settings_size']
         self.settings_bot = {'default': 'bot'}
@@ -130,155 +132,168 @@ class Bot(discord.Client):
 
         guild = message.guild.id
 
-        print(f"{message.author.display_name}: {message.content}")
+        issued_command_by = f"{message.author.display_name}: {message.content}"
+        print(issued_command_by)
 
-        if cmd[0].startswith('!init'):
-            if message.author != self.tutor[guild]:
-                await message.reply(f'Beep boop, du hast keine Berechtigung dafür!', mention_author=False)
-                return
-            await self.initialize(message.guild, message)
+        try:
+            if cmd[0].startswith('!init'):
+                if message.author != self.tutor[guild]:
+                    await message.reply(f'Beep boop, du hast keine Berechtigung dafür!', mention_author=False)
+                    return
+                await self.initialize(message.guild, message)
 
-        elif cmd[0].startswith('!set'):
-            if message.author != self.tutor[guild]:
-                await message.reply(f'Beep boop, du hast keine Berechtigung dafür!', mention_author=False)
-                return
-            success = False
-            i = 1
-            while i < len(cmd):
-                setting = cmd[i]
-                if setting not in ['bot', 'general', 'rooms', 'size']:
-                    await message.reply(f'Beep boop, {setting} kenne ich nicht. Benutze bitte `bot`, `general`, `rooms` oder `size`!', mention_author=False)
-                    break
-                if len(cmd) < i+1:
-                    await message.reply(f'Beep boop, du hast keinen Channel Namen für {setting} eingegeben!', mention_author=False)
-                    break
-                channel = cmd_orig[i+1]
-                getattr(self, 'settings_'+setting)[guild] = channel
-                if setting == 'size':
-                    await message.reply(f'Beep boop, Gruppengröße auf mindestens {channel} gesetzt!', mention_author=False)
+            elif cmd[0].startswith('!set'):
+                if message.author != self.tutor[guild]:
+                    await message.reply(f'Beep boop, du hast keine Berechtigung dafür!', mention_author=False)
+                    return
+                success = False
+                i = 1
+                while i < len(cmd):
+                    setting = cmd[i]
+                    if setting not in ['bot', 'general', 'rooms', 'size']:
+                        await message.reply(f'Beep boop, {setting} kenne ich nicht. Benutze bitte `bot`, `general`, `rooms` oder `size`!', mention_author=False)
+                        break
+                    if len(cmd) < i+1:
+                        await message.reply(f'Beep boop, du hast keinen Channel Namen für {setting} eingegeben!', mention_author=False)
+                        break
+                    channel = cmd_orig[i+1]
+                    getattr(self, 'settings_'+setting)[guild] = channel
+                    if setting == 'size':
+                        await message.reply(f'Beep boop, Gruppengröße auf mindestens {channel} gesetzt!', mention_author=False)
+                    else:
+                        await message.reply(f'Beep boop, Channel Name von {setting} auf {channel} gesetzt!', mention_author=False)
+                    success = True
+                    i += 2
+                if success:
+                    await message.reply(f'Beep boop, bitte benutze `!init` um zu Einstellungen zu übernehmen!', mention_author=False)
+                    self.save_settings()
+
+
+            elif cmd[0].startswith('!hallo'):
+                await message.reply(f'Hallo {message.author.display_name}!', mention_author=False)
+
+
+            elif cmd[0].startswith('!ping'):
+                try:
+                    category = message.author.voice.channel.category
+                    room = f' in {category if category is not None else message.author.voice.channel}'
+                except AttributeError:
+                    room = ''
+                await self.bot_channel[guild].send(f'{self.tutor[guild].mention}: {message.author.display_name} hat eine Frage{room}!')
+                await message.reply('Beep boop, ich habe eine Benachrichtigung geschickt!', mention_author=False)
+
+
+            elif cmd[0].startswith('!time'):
+                if message.author != self.tutor[guild]:
+                    await message.reply(f'Beep boop, du kannst keine Timer stellen! Falls du wissen willst wie lange der aktuelle Timer noch läuft, benutz `!rem`', mention_author=False)
+                    return
+
+                if not self.started_at[guild] == None:
+                    await message.reply(f'Beep boop, es läuft schon ein {self.min[guild]}-Minuten Timer!', mention_author=False)
+                    return
+
+                try:
+                    self.min[guild] = int(cmd[1])
+                except:
+                    await message.reply('Beep boop, ich hatte Probleme beim parsen der Zeit! Bitte benutze nur natürliche Zahlen!', mention_author=False)
+                    return
+
+                if self.min[guild] < 0 or self.min[guild] > 120:
+                    await message.reply('Beep boop, nur Zeiten zwischen 0 und 120 Minuten sind erlaubt!', mention_author=False)
+                    return
+
+                self.started_at[guild] = time.time()
+                self.timer[guild] = Timer(self.min[guild]*60, partial(self.announce, message.guild))
+                await message.reply(f'Beep boop, ich habe einen Timer für {self.min[guild]} Minuten gestellt!', mention_author=False)
+
+
+            elif cmd[0].startswith('!rem'):
+                if self.started_at[guild] == None:
+                    await message.reply('Beep boop, es ist kein Timer gestellt!', mention_author=False)
+                    return
+
+                remaining_min = int((self.started_at[guild] + self.min[guild]*60 - time.time()) / 60)
+                if remaining_min == 0:
+                    time_text = "weniger als eine Minute"
+                elif remaining_min == 1:
+                    time_text = "eine Minute"
                 else:
-                    await message.reply(f'Beep boop, Channel Name von {setting} auf {channel} gesetzt!', mention_author=False)
-                success = True
-                i += 2
-            if success:
-                await message.reply(f'Beep boop, bitte benutze `!init` um zu Einstellungen zu übernehmen!', mention_author=False)
-                self.save_settings()
+                    time_text = f"{remaining_min} Minuten"
+                await message.reply(f'Beep boop, der Timer läuft noch {time_text}!', mention_author=False)
+
+            elif cmd[0].startswith('!cancel'):
+                if message.author != self.tutor[guild]:
+                    await message.reply(f'Beep boop, du kannst keine Timer abbrechen!', mention_author=False)
+                    return
+
+                if self.started_at[guild] == None:
+                    await message.reply('Beep boop, es ist kein Timer gestellt!', mention_author=False)
+                    return
+
+                self.started_at[guild] = None
+                self.timer[guild].cancel()
+                await message.reply(f'Beep boop, ich habe den {self.min[guild]}-Minuten Timer abgebrochen!', mention_author=False)
 
 
-        elif cmd[0].startswith('!hallo'):
-            await message.reply(f'Hallo {message.author.display_name}!', mention_author=False)
+            elif cmd[0].startswith('!ann'):
+                if message.author != self.tutor[guild]:
+                    await message.reply(f'Beep boop, du kannst keine Benachrichtigung schicken lassen!', mention_author=False)
+                    return
+
+                await self.announce(message.guild)
+
+            elif cmd[0].startswith('!room'):
+                if message.author != self.tutor[guild]:
+                    await message.reply(f'Beep boop, du kannst keine Leute aufteilen lassen!', mention_author=False)
+                    return
+
+                shuffledMembers = self.general[guild].members
+                if len(shuffledMembers) == 0:
+                    print('WARN: No members to assign found!')
+                    return
+                shuffle(shuffledMembers)
+
+                numberOfRooms = len(self.rooms[guild])
+                membersPerRoom = 0
+                # check how many rooms will be used
+                while membersPerRoom < self.group_size[guild] and numberOfRooms > 1:
+                    numberOfRooms -= 1
+                    membersPerRoom = int((len(shuffledMembers) - 1) / numberOfRooms)
+
+                print(f'Assigning {len(shuffledMembers) - 1} people to {numberOfRooms} rooms')
+
+                # add people to the rooms
+                i = 0
+                for member in shuffledMembers:
+                    if member != self.tutor[guild]:
+                        await member.move_to(self.rooms[guild][i])
+                        print(f'Moved {member.display_name} to room {i+1}')
+                        i = (i+1) % numberOfRooms
+                    else:
+                        print(f'Skipped {member.display_name}')
+
+                await message.reply('Beep boop, alle Teilnehmer wurden auf die Räume aufgeteilt!', mention_author=False)
+                print('Done')
 
 
-        elif cmd[0].startswith('!ping'):
-            try:
-                category = message.author.voice.channel.category
-                room = f' in {category if category is not None else message.author.voice.channel}'
-            except AttributeError:
-                room = ''
-            await self.bot_channel[guild].send(f'{self.tutor[guild].mention}: {message.author.display_name} hat eine Frage{room}!')
-            await message.reply('Beep boop, ich habe eine Benachrichtigung geschickt!', mention_author=False)
+            elif cmd[0].startswith('!help'):
+                help = self.help if message.author != self.tutor[guild] else self.help_full
+                await message.reply(f'Beep boop, hier sind alle Befehle die ich zur Zeit kann:\n{help}', mention_author=False)
 
+            elif cmd[0].startswith('!test'):
+                a, b = [0]
 
-        elif cmd[0].startswith('!time'):
-            if message.author != self.tutor[guild]:
-                await message.reply(f'Beep boop, du kannst keine Timer stellen! Falls du wissen willst wie lange der aktuelle Timer noch läuft, benutz `!rem`', mention_author=False)
-                return
+            elif cmd[0].startswith('!'):
+                help = self.help if message.author != self.tutor[guild] else self.help_full
+                await message.reply(f'Beep boop, den Befehl kenne ich nicht, hier sind alle Befehle die ich zur Zeit kann:\n{help}', mention_author=False)
 
-            if not self.started_at[guild] == None:
-                await message.reply(f'Beep boop, es läuft schon ein {self.min[guild]}-Minuten Timer!', mention_author=False)
-                return
-
-            try:
-                self.min[guild] = int(cmd[1])
-            except:
-                await message.reply('Beep boop, ich hatte Probleme beim parsen der Zeit! Bitte benutze nur natürliche Zahlen!', mention_author=False)
-                return
-
-            if self.min[guild] < 0 or self.min[guild] > 120:
-                await message.reply('Beep boop, nur Zeiten zwischen 0 und 120 Minuten sind erlaubt!', mention_author=False)
-                return
-
-            self.started_at[guild] = time.time()
-            self.timer[guild] = Timer(self.min[guild]*60, partial(self.announce, message.guild))
-            await message.reply(f'Beep boop, ich habe einen Timer für {self.min[guild]} Minuten gestellt!', mention_author=False)
-
-
-        elif cmd[0].startswith('!rem'):
-            if self.started_at[guild] == None:
-                await message.reply('Beep boop, es ist kein Timer gestellt!', mention_author=False)
-                return
-
-            remaining_min = int((self.started_at[guild] + self.min[guild]*60 - time.time()) / 60)
-            if remaining_min == 0:
-                time_text = "weniger als eine Minute"
-            elif remaining_min == 1:
-                time_text = "eine Minute"
-            else:
-                time_text = f"{remaining_min} Minuten"
-            await message.reply(f'Beep boop, der Timer läuft noch {time_text}!', mention_author=False)
-
-        elif cmd[0].startswith('!cancel'):
-            if message.author != self.tutor[guild]:
-                await message.reply(f'Beep boop, du kannst keine Timer abbrechen!', mention_author=False)
-                return
-
-            if self.started_at[guild] == None:
-                await message.reply('Beep boop, es ist kein Timer gestellt!', mention_author=False)
-                return
-
-            self.started_at[guild] = None
-            self.timer[guild].cancel()
-            await message.reply(f'Beep boop, ich habe den {self.min[guild]}-Minuten Timer abgebrochen!', mention_author=False)
-
-
-        elif cmd[0].startswith('!ann'):
-            if message.author != self.tutor[guild]:
-                await message.reply(f'Beep boop, du kannst keine Benachrichtigung schicken lassen!', mention_author=False)
-                return
-
-            await self.announce(message.guild)
-
-        elif cmd[0].startswith('!room'):
-            if message.author != self.tutor[guild]:
-                await message.reply(f'Beep boop, du kannst keine Leute aufteilen lassen!', mention_author=False)
-                return
-
-            shuffledMembers = self.general[guild].members
-            if len(shuffledMembers) == 0:
-                print('WARN: No members to assign found!')
-                return
-            shuffle(shuffledMembers)
-
-            numberOfRooms = len(self.rooms[guild])
-            membersPerRoom = 0
-            # check how many rooms will be used
-            while membersPerRoom < self.group_size and numberOfRooms > 1:
-                numberOfRooms -= 1
-                membersPerRoom = int((len(shuffledMembers) - 1) / numberOfRooms)
-
-            print(f'Assigning {len(shuffledMembers) - 1} people to {numberOfRooms} rooms')
-
-            # add people to the rooms
-            i = 0
-            for member in shuffledMembers:
-                if member != self.tutor[guild]:
-                    await member.move_to(self.rooms[guild][i])
-                    print(f'Moved {member.display_name} to room {i+1}')
-                    i = (i+1) % numberOfRooms
-                else:
-                    print(f'Skipped {member.display_name}')
-
-            await message.reply('Beep boop, alle Teilnehmer wurden auf die Räume aufgeteilt!', mention_author=False)
-            print('Done')
-
-
-        elif cmd[0].startswith('!help'):
-            help = self.help if message.author != self.tutor[guild] else self.help_full
-            await message.reply(f'Beep boop, hier sind alle Befehle die ich zur Zeit kann:\n{help}', mention_author=False)
-
-        elif cmd[0].startswith('!'):
-            help = self.help if message.author != self.tutor[guild] else self.help_full
-            await message.reply(f'Beep boop, den Befehl kenne ich nicht, hier sind alle Befehle die ich zur Zeit kann:\n{help}', mention_author=False)
+        except Exception:
+            await message.reply(f'Beep boop, es ist leider ein Fehler aufgetreten :sob: Es wurde eine Benachrichtigung geschickt und der Fehler wird so bald wie möglich behoben!', mention_author=False)
+            excep_traceback = traceback.format_exc()
+            except_message = (f"Es ist ein Fehler bei dem Server von {self.tutor[guild].display_name} aufgetreten!\n"
+                              f"Der Command war: {issued_command_by}\n"
+                              f"Hier ist der Stracktrace:\n{excep_traceback}")
+            await self.admin.send(except_message)
 
 
     async def announce(self, guild):
@@ -294,6 +309,7 @@ class Bot(discord.Client):
             await asyncio.sleep(4)
             await vc.disconnect()
 
+        await guild.owner.send(text)
 
 class Timer:
     def __init__(self, timeout, callback):
