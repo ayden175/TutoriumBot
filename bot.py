@@ -311,8 +311,6 @@ class Bot(discord.Client):
             await asyncio.sleep(4)
             await vc.disconnect()
 
-        await guild.owner.send(text)
-
 class Timer:
     def __init__(self, timeout, callback):
         self._timeout = timeout
