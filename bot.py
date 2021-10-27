@@ -280,8 +280,8 @@ class Bot(discord.Client):
                 help = self.help if message.author != self.tutor[guild] else self.help_full
                 await message.reply(f'Beep boop, hier sind alle Befehle die ich zur Zeit kann:\n{help}', mention_author=False)
 
-            elif cmd[0].startswith('!test'):
-                a, b = [0]
+            elif cmd[0].startswith('!error'):
+                raise Exception
 
             elif cmd[0].startswith('!'):
                 help = self.help if message.author != self.tutor[guild] else self.help_full
@@ -290,10 +290,12 @@ class Bot(discord.Client):
         except Exception:
             await message.reply(f'Beep boop, es ist leider ein Fehler aufgetreten :sob: Es wurde eine Benachrichtigung geschickt und der Fehler wird so bald wie möglich behoben!', mention_author=False)
             excep_traceback = traceback.format_exc()
-            except_message = (f"Es ist ein Fehler bei dem Server von {self.tutor[guild].display_name} aufgetreten!\n"
-                              f"Der Command war: {issued_command_by}\n"
+            except_message = (f"Der Command war: {issued_command_by}\n"
                               f"Hier ist der Stracktrace:\n{excep_traceback}")
-            await self.admin.send(except_message)
+            if not self.admin is None:
+                await self.admin.send(f"Es ist ein Fehler bei dem Server von {self.tutor[guild].display_name} aufgetreten!\n" + except_message)
+            else:
+                await self.tutor[guild].send("Es ist ein Fehler aufgetreten! Bitte leite diese Informationen weiter, damit der Fehler behoben werden kann.\n" + except_message)
 
 
     async def announce(self, guild):
