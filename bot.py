@@ -248,7 +248,8 @@ class Bot(discord.Client):
                     return
 
                 shuffledMembers = self.general[guild].members
-                if len(shuffledMembers) == 0:
+                if len(shuffledMembers) <= 1:
+                    await message.reply(f'Beep boop, ich habe niemanden zum Aufteilen gefunden!', mention_author=False)
                     print('WARN: No members to assign found!')
                     return
                 shuffle(shuffledMembers)
@@ -266,9 +267,12 @@ class Bot(discord.Client):
                 i = 0
                 for member in shuffledMembers:
                     if member != self.tutor[guild]:
-                        await member.move_to(self.rooms[guild][i])
-                        print(f'Moved {member.display_name} to room {i+1}')
-                        i = (i+1) % numberOfRooms
+                        try:
+                            await member.move_to(self.rooms[guild][i])
+                            print(f'Moved {member.display_name} to room {i+1}')
+                            i = (i+1) % numberOfRooms
+                        except discord.errors.HTTPException:
+                            print(f'Error while assigning {member.display_name} to room {i+1}, skipping')
                     else:
                         print(f'Skipped {member.display_name}')
 
