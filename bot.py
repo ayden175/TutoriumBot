@@ -154,14 +154,16 @@ class Bot(discord.Client):
                         await message.reply(f'Beep boop, {setting} kenne ich nicht. Benutze bitte `bot`, `general`, `rooms` oder `size`!', mention_author=False)
                         break
                     if len(cmd) < i+1:
-                        await message.reply(f'Beep boop, du hast keinen Channel Namen für {setting} eingegeben!', mention_author=False)
+                        await message.reply(f'Beep boop, du hast keinen Wert für {setting} eingegeben!', mention_author=False)
                         break
-                    channel = cmd_orig[i+1]
-                    getattr(self, 'settings_'+setting)[guild] = channel
+                    new_value = cmd_orig[i+1]
+
                     if setting == 'size':
-                        await message.reply(f'Beep boop, Gruppengröße auf mindestens {channel} gesetzt!', mention_author=False)
+                        getattr(self, 'settings_'+setting)[guild] = int(new_value)
+                        await message.reply(f'Beep boop, Gruppengröße auf mindestens {new_value} gesetzt!', mention_author=False)
                     else:
-                        await message.reply(f'Beep boop, Channel Name von {setting} auf {channel} gesetzt!', mention_author=False)
+                        getattr(self, 'settings_'+setting)[guild] = new_value
+                        await message.reply(f'Beep boop, Channel Name von {setting} auf {new_value} gesetzt!', mention_author=False)
                     success = True
                     i += 2
                 if success:
