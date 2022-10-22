@@ -40,8 +40,11 @@ class Bot(discord.Client):
         print("------------- Initializations -------------")
         for guild in self.guilds:
             await self.initialize(guild, startup=True)
-            self.tree.copy_global_to(guild=guild)
-            await self.tree.sync(guild=guild)
+            try:
+                self.tree.copy_global_to(guild=guild)
+                await self.tree.sync(guild=guild)
+            except:
+                print('ERROR: Cannot sync commands for guild ' + guild.name + ' with owner ' + guild.owner.display_name + '!')
 
         self.help = (" - `/ping`: Schickt eine Benachrichtigung, wenn du eine Frage hast\n"
                      " - `/remaining`: Gibt zurück wie lange der aktuelle Timer noch läuft\n"
@@ -131,7 +134,10 @@ class Bot(discord.Client):
         if guild.id not in self.sent_update:
             self.sent_update.append(guild.id)
             if bot_found:
-                await self.bot_channel[guild.id].send(self.update_msg)
+                try:
+                    await self.bot_channel[guild.id].send(self.update_msg)
+                except:
+                    await guild.owner.send(self.update_msg)
             else:
                 await guild.owner.send(self.update_msg)
 
